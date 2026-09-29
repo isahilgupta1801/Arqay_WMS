@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Warehouses & zones · RK Warehouse</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Public+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app.css">
+  <style>
+    .top {
+      display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 0.75rem;
+      padding: 1.25rem clamp(1rem, 3vw, 2rem) 1rem;
+      border-bottom: 1px solid var(--line);
+    }
+    .top h1 { font-family: var(--display); font-size: clamp(2rem, 5vw, 2.8rem); line-height: 1; margin: 0; }
+    .top .counts { color: var(--muted); margin: 0.35rem 0 0; }
+    .top .actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+    .toggle { display: flex; gap: 0.4rem; align-items: center; color: var(--muted); font-size: 0.9rem; cursor: pointer; }
+
+    .layout {
+      display: grid; grid-template-columns: minmax(260px, 340px) 1fr;
+      min-height: calc(100dvh - 110px);
+    }
+    .list-pane { border-right: 1px solid var(--line); padding: 1rem; }
+    .list-pane .search { width: 100%; margin-bottom: 0.75rem; padding: 0.55rem 0.65rem; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); min-height: 42px; }
+    .wh-list { list-style: none; margin: 0; padding: 0; }
+    .wh-item {
+      width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--line);
+      display: grid; grid-template-columns: auto 1fr auto; gap: 0.75rem; align-items: center;
+      padding: 0.7rem 0.4rem; cursor: pointer;
+    }
+    .wh-item:hover { background: var(--panel); }
+    .wh-item[aria-current="true"] { background: var(--panel); box-shadow: inset 4px 0 0 var(--ink); }
+    .wh-item .tape { font-size: 1.15rem; min-width: 4.4em; text-align: center; }
+    input::placeholder { text-transform: none; }
+    .wh-item .nm { font-weight: 600; overflow-wrap: anywhere; }
+    .wh-item .sub { color: var(--muted); font-size: 0.82rem; }
+    .wh-item .walk { color: var(--muted); font-size: 0.82rem; text-align: right; }
+
+    .detail { padding: 1.25rem clamp(1rem, 3vw, 2rem) 2rem; max-width: 980px; }
+    .detail .back { display: none; margin-bottom: 1rem; }
+    .wh-head { display: flex; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
+    .wh-head h2 { font-family: var(--display); font-size: clamp(1.8rem, 4vw, 2.4rem); margin: 0; line-height: 1.05; overflow-wrap: anywhere; }
+    .wh-head .meta { color: var(--muted); margin: 0.3rem 0 0; }
+    .wh-head .grow { flex: 1; min-width: 220px; }
+    .wh-head .actions { display: flex; gap: 0.5rem; }
+    .notes { margin: 0.9rem 0 0; max-width: 70ch; white-space: pre-wrap; }
+    .archived-note { margin-top: 0.9rem; padding: 0.6rem 0.8rem; border: 1px dashed var(--line); color: var(--muted); }
+
+    .zones-head { display: flex; justify-content: space-between; align-items: center; margin: 2rem 0 0.6rem; gap: 1rem; }
+    .zones-head h3 { margin: 0; font-size: 1.1rem; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); }
+    table { border-collapse: collapse; width: 100%; min-width: 640px; }
+    th, td { text-align: left; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
+    th { font-size: 0.82rem; color: var(--muted); font-weight: 600; }
+    tr:last-child td { border-bottom: 0; }
+    tr.is-archived td { color: var(--muted); }
+    td .tape { font-size: 1rem; }
+    td.acts { text-align: right; white-space: nowrap; }
+    td.acts .btn + .btn { margin-left: 0.35rem; }
+    .znotes { color: var(--muted); font-size: 0.82rem; }
+
+    .empty { padding: 2.5rem 1rem; max-width: 52ch; }
+    .empty h2 { font-family: var(--display); font-size: 1.9rem; margin: 0 0 0.5rem; }
+    .empty p { color: var(--muted); margin: 0 0 1rem; }
+
+    .audit-list { list-style: none; margin: 0; padding: 0; }
+    .audit-list li { padding: 0.55rem 0; border-bottom: 1px solid var(--line); font-size: 0.9rem; }
+    .audit-list .when { color: var(--muted); font-size: 0.8rem; }
+
+    @media (max-width: 760px) {
+      .layout { grid-template-columns: 1fr; }
+      .list-pane { border-right: 0; }
+      .layout.show-detail .list-pane { display: none; }
+      .layout:not(.show-detail) .detail { display: none; }
+      .detail .back { display: inline-block; }
+      .row2 { grid-template-columns: 1fr; }
+      .wh-head .actions { width: 100%; }
+      /* zones become stacked cards on phones */
+      .table-wrap { overflow: visible; border: 0; background: none; }
+      table { min-width: 0; }
+      thead { display: none; }
+      table, tbody, td { display: block; }
+      tr {
+        display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.75rem; align-items: start;
+        background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
+        padding: 0.7rem 0.75rem; margin-bottom: 0.6rem;
+      }
+      td { border: 0 !important; padding: 0; }
+      td:nth-child(1) { grid-row: 1 / 4; }
+      td:nth-child(3), td:nth-child(4) { grid-column: 2; color: var(--muted); font-size: 0.85rem; }
+      td:nth-child(4)::before { content: "Pick sequence "; }
+      td.acts { grid-column: 1 / -1; text-align: left; margin-top: 0.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>Warehouses & zones</h1>
+      <p class="counts" id="counts">Loading…</p>
+    </div>
+    <div class="actions">
+      <label class="toggle"><input type="checkbox" id="showArchived"> Show archived</label>
+      <button class="btn quiet" id="btnAudit" type="button">Recent changes</button>
+    </div>
+  </header>
+
+  <main class="layout" id="layout">
+    <section class="list-pane" aria-label="Warehouses">
+      <button class="btn" id="btnAddWh" type="button" style="width:100%;margin-bottom:0.75rem">Add warehouse</button>
+      <input class="search" id="search" type="search" placeholder="Search by name or code" aria-label="Search warehouses">
+      <ul class="wh-list" id="whList"></ul>
+    </section>
+    <section class="detail" id="detail" aria-live="polite"></section>
+  </main>
+
+  <!-- Warehouse form -->
+  <dialog id="dlgWh">
+    <form id="formWh" novalidate>
+      <div class="dlg-head"><h2 id="dlgWhTitle">Add warehouse</h2></div>
+      <div class="dlg-body">
+        <p class="form-err" id="whFormErr" hidden></p>
+        <div class="field" data-f="name">
+          <label for="whName">Warehouse name</label>
+          <input id="whName" name="name" maxlength="60" required autocomplete="off" placeholder="e.g. Main Godown">
+          <div class="err"></div>
+        </div>
+        <div class="row2">
+          <div class="field" data-f="code">
+            <label for="whCode">Code</label>
+            <input id="whCode" name="code" maxlength="6" autocomplete="off" placeholder="Auto (WH01…)" style="text-transform:uppercase">
+            <span class="hint">Printed on labels. Leave blank to auto-assign.</span>
+            <div class="err"></div>
+          </div>
+          <div class="field" data-f="walk_order">
+            <label for="whWalk">Walking order</label>
+            <input id="whWalk" name="walk_order" type="number" min="1" max="999" inputmode="numeric" placeholder="1 = nearest dock">
+            <span class="hint">Pick lists visit warehouses in this order.</span>
+            <div class="err"></div>
+          </div>
+        </div>
+        <div class="field" data-f="address">
+          <label for="whAddress">Address or landmark</label>
+          <input id="whAddress" name="address" maxlength="200" autocomplete="off">
+          <div class="err"></div>
+        </div>
+        <div class="field" data-f="notes">
+          <label for="whNotes">Notes</label>
+          <textarea id="whNotes" name="notes" maxlength="300"></textarea>
+          <div class="err"></div>
+        </div>
+      </div>
+      <div class="dlg-foot">
+        <button class="btn quiet" type="button" data-close>Cancel</button>
+        <button class="btn" type="submit" id="whSubmit">Save warehouse</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Zone form -->
+  <dialog id="dlgZone">
+    <form id="formZone" novalidate>
+      <div class="dlg-head"><h2 id="dlgZoneTitle">Add zone</h2></div>
+      <div class="dlg-body">
+        <p class="form-err" id="zoneFormErr" hidden></p>
+        <div class="field" data-f="name">
+          <label for="zName">Zone name</label>
+          <input id="zName" name="name" maxlength="60" required autocomplete="off" placeholder="e.g. Front bay, Reel yard">
+          <div class="err"></div>
+        </div>
+        <div class="field" data-f="zone_type">
+          <label for="zType">Zone type</label>
+          <select id="zType" name="zone_type" required></select>
+          <span class="hint">Decides what can be stored here later (stock, reels, dispatch staging).</span>
+          <div class="err"></div>
+        </div>
+        <div class="row2">
+          <div class="field" data-f="code">
+            <label for="zCode">Code</label>
+            <input id="zCode" name="code" maxlength="6" autocomplete="off" placeholder="Auto (Z01…)" style="text-transform:uppercase">
+            <div class="err"></div>
+          </div>
+          <div class="field" data-f="pick_sequence">
+            <label for="zSeq">Pick sequence</label>
+            <input id="zSeq" name="pick_sequence" type="number" min="1" max="999" inputmode="numeric" placeholder="1 = first">
+            <div class="err"></div>
+          </div>
+        </div>
+        <div class="field" data-f="notes">
+          <label for="zNotes">Notes</label>
+          <textarea id="zNotes" name="notes" maxlength="300"></textarea>
+          <div class="err"></div>
+        </div>
+      </div>
+      <div class="dlg-foot">
+        <button class="btn quiet" type="button" data-close>Cancel</button>
+        <button class="btn" type="submit" id="zSubmit">Save zone</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Audit -->
+  <dialog id="dlgAudit">
+    <div class="dlg-head"><h2>Recent changes</h2></div>
+    <div class="dlg-body"><ul class="audit-list" id="auditList"></ul></div>
+    <div class="dlg-foot"><button class="btn quiet" type="button" data-close>Close</button></div>
+  </dialog>
+
+  <div id="toast" role="status"></div>
+  <script src="/locations.js"></script>
+</body>
+</html>
