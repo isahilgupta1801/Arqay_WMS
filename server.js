@@ -1,9 +1,9 @@
 // RK Warehouse — entry point
 const express = require('express');
 const path = require('path');
-const { pool, migrate } = require('./src/db');
-const { requireLogin } = require('./src/auth');
-const { router: locationsRouter, AppError } = require('./src/routes/locations');
+const { pool, migrate } = require('./db');
+const { requireLogin } = require('./auth');
+const { router: locationsRouter, AppError } = require('./locations-api');
 
 const app = express();
 app.disable('x-powered-by');
@@ -34,8 +34,16 @@ app.use('/api', locationsRouter);
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found.' }));
 
 app.get('/', (req, res) => res.redirect('/locations'));
-app.get('/locations', (req, res) => res.sendFile(path.join(__dirname, 'public', 'locations.html')));
-app.use(express.static(path.join(__dirname, 'public'), { index: false }));
+// All files sit in one folder (GitHub web upload flattens folders).
+// Only these browser files are served. Server files like db.js are never sent.
+const PAGE_FILES = {
+  '/locations': 'locations.html',
+  '/locations.js': 'locations.js',
+  '/app.css': 'app.css',
+};
+for (const [route, file] of Object.entries(PAGE_FILES)) {
+  app.get(route, (req, res) => res.sendFile(path.join(__dirname, file)));
+}
 
 // Central error handler: clear messages for expected errors, no internals leaked otherwise
 app.use((err, req, res, next) => {
